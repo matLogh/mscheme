@@ -9,7 +9,8 @@ To run macro:
 2. type .L mscheme.cxx
 3. type mscheme(spin,n)
 
-spin is 2* spin of particles, e.g. when spin is 7/2, put 7 instead
+spin is a double of an orbital spin, e.g. when spin is 7/2, put 7 instead
+
 n is number of particles, e.g. 2 
 
 output is written in terminal window and histogram of M values is shown
