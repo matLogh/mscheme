@@ -1,8 +1,15 @@
 // function return true if the entry is not suitable, e.g. two particles of same spin
 // or the same combination of spins already present in the table
-bool IsFound(int *vec, int nentries, int nelements, int **tab)
+bool IsFound(int *vec, int nelements, std::vector<int*> tab)
 {
-	for(int i=0; i<nentries; i++)
+	if(tab.size()==0)
+	{
+		for(int j=0; j<nelements; j++)
+			for(int k=0; k<nelements; k++)
+				if(vec[j] == vec[k] && k>=j+1) return true;
+	}
+
+	for(int i=0; i<tab.size(); i++)
 	{
 		int fold = 0;
 		for(int j=0; j<nelements; j++)
@@ -10,7 +17,7 @@ bool IsFound(int *vec, int nentries, int nelements, int **tab)
 			for(int k=0; k<nelements; k++)
 			{
 				if(vec[j] == vec[k] && k>=j+1) return true;
-				if(vec[j] == tab[k][i] && i<nentries-1) 
+				if(vec[j] == tab[i][k])
 				{
 					fold++;
 					break;
@@ -29,7 +36,7 @@ Int_t mscheme(int spin = 7, int nparticles = 4)
 {
 	const int nfields = spin+1, nentries = TMath::Power(nfields,nparticles);
 	int vSpin[nfields], index[nparticles];
-	int **tabAll = new int *[nparticles+2];
+	std::vector<int*> vMscheme;		// resulting m-scheme
 
 	for(int i=0;i<nfields;i++)
 		vSpin[i] = spin-2*i;		// array of all available spin values
@@ -37,14 +44,13 @@ Int_t mscheme(int spin = 7, int nparticles = 4)
 	for(int i=0;i<nparticles;i++)
 	{
 		index[i] = 0;
-		tabAll[i] = new int[nentries];	// 2D array of all available combinations
 	}
-	tabAll[nparticles] = new int[nentries];		// row for M values
-	tabAll[nparticles+1] = new int[nentries];	// row for absolute sums - not used
 
-	for(int i=0;i<nentries;i++)				// filling of tabAll
+	std::cout << setprecision(3);
+	for(int i=0;i<nentries;i++)				// filling of mscheme table
 	{
 		int sumM = 0, sumJ = 0;
+		int *vec = new int[nparticles+2];
 		for(int j=0; j<nparticles; j++)
 		{
 			if( index[j]%nfields == 0 && j<=nparticles-1 && index[j]>0)
@@ -54,24 +60,20 @@ Int_t mscheme(int spin = 7, int nparticles = 4)
 			}
 			sumM += vSpin[index[j]];
 			sumJ += TMath::Abs(vSpin[index[j]]);
-			tabAll[j][i] = vSpin[index[j]];
+			vec[j] = vSpin[index[j]];
 		}
 		index[0]++;
-		tabAll[nparticles][i] = sumM;
-		tabAll[nparticles+1][i] = sumJ;
-	}
-
-	std::vector<int*> vMscheme;		// resulting m-scheme is polished tabAll
-	for(int i=0;i<nentries;i++)
-	{
-		int *vec = new int[nparticles+2];
-		for(int j=0; j<nparticles+2; j++)
+		vec[nparticles] = sumM;
+		vec[nparticles+1] = sumJ;
+		if(i%200000==0) std::cout << "Processed " << setw(7) << (double)i/((double)nentries)*100 << setw(3) << "%\r" << std::flush;
+		if(IsFound(vec,nparticles,vMscheme) || vec[nparticles]<0)
 		{
-			vec[j] = tabAll[j][i];
+			delete[] vec;										// clear RAM space
+			continue;											// if non suitable entry - no filling mscheme
 		}
-		if(IsFound(vec,i+1,nparticles,tabAll) || vec[nparticles]<0) continue;	// if non suitable entry - no filling mscheme
 		vMscheme.push_back(vec);
 	}
+	std::cout << std::endl;
 
 	TH1I *hist = new TH1I("hist_J","histogram of resulting M states",100,0,100);	// histogram of resulting M states
 	for(int i=0;i<vMscheme.size();i++)												// histogram fill and screen output
@@ -80,37 +82,37 @@ Int_t mscheme(int spin = 7, int nparticles = 4)
 		{
 			for(int j=0; j<nparticles; j++)
 			{
-				std::cout <<" m"<< j+1 << "  ";
-				if(spin>10) std::cout <<" ";
+				if(j==0) std::cout << setw(7) <<"m1";
+				else std::cout << setw(7) <<"m"<< j+1;
 			}
-			std::cout << "   M" << std::endl;
+			std::cout << setw(7) << "M" << std::endl;
 		}
 		for(int j=nparticles-1; j>=0; j--)
 		{
-			if(vMscheme[i][j]>0) std::cout << " ";
-			std::cout << vMscheme[i][j] <<"/2 ";
+			std::cout << setw(5) << vMscheme[i][j] <<"/2 ";
 		}
 		if(nparticles%2==0)
 		{
-			std::cout <<"-> "<< vMscheme[i][nparticles]/2 << std::endl;
+			std::cout << setw(4) <<"-> "<< vMscheme[i][nparticles]/2 << std::endl;
 			hist->Fill(vMscheme[i][nparticles]/2);
 		}
 		else 
 		{
-			std::cout << "-> " << vMscheme[i][nparticles] <<"/2"<< std::endl;
+			std::cout << setw(4) << "-> " << vMscheme[i][nparticles] <<"/2"<< std::endl;
 			hist->Fill(vMscheme[i][nparticles]);
 		}
 	}
 
-	std::cout << std::endl <<"Multiplicity\tx\tJ"<< std::endl;		// results in form of how many times and which J can be found
+	std::cout << std::endl <<"Multiplicity  x     J"<< std::endl;		// results in form of how many times and which J can be found
 	int fold = 0;
 	for(int i=hist->GetXaxis()->GetNbins(); i>0; i--)
 	{
 		int bin = hist->GetBinContent(i);
 		if(bin>fold)
 		{
-			if(nparticles%2==0) std::cout <<"\t"<< bin-fold <<"\tx\t"<< i-1 << std::endl;
-			else std::cout <<"\t"<< bin-fold <<"\tx\t"<< i-1 << "/2" << std::endl;
+			std::cout << setw(6);
+			if(nparticles%2==0) std::cout << bin-fold << setw(9) <<"x"<< setw(7) << i-1 << std::endl;
+			else std::cout << bin-fold << setw(9) <<"x"<< setw(5) << i-1 << "/2" << std::endl;
 			fold = bin;
 		}
 	}
