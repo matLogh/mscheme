@@ -1,7 +1,7 @@
 # mscheme
-mscheme.cxx is ROOT macro, which calculates M and J values from all possible combination of spins
-for N fermions in the same orbital
-code by Matus Sedlak
+mscheme.cxx is ROOT macro, which calculates M and J values from all possible combination of spins for N fermions in the same orbital
+
+by Matus Sedlak
 ****************************************************************************************
 
 To run macro:
